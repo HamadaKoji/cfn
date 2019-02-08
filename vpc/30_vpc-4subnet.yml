@@ -1,0 +1,219 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC Network Template
+Parameters:
+  NameTagPrefix:
+    Type: String
+    Default: base
+    Description: Prefix of Name tags.
+  VPCCIDR:
+    Description: First and Second Octet of VPC, For example xxx.xxx
+    Type: String
+    Default: '10.0'
+    AllowedPattern: "^(10\\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])|172\\.(1[6-9]|2[0-9]|3[0-1])|192\\.168)$"
+    ConstraintDescription: xxx.xxx
+Mappings:
+  StackConfig:
+    VPC:
+      CIDR: ".0.0/16"
+    FrontendSubnet1:
+      CIDR: ".0.0/24"
+    FrontendSubnet2:
+      CIDR: ".1.0/24"
+    ApplicationSubnet1:
+      CIDR: ".100.0/24"
+    ApplicationSubnet2:
+      CIDR: ".101.0/24"
+    DatastoreSubnet1:
+      CIDR: ".200.0/24"
+    DatastoreSubnet2:
+      CIDR: ".201.0/24"
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, VPC, CIDR ]}
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-VPC
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-IGW
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  FrontendRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: AttachGateway
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-FrontendRoute
+  FrontendRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  ApplicationRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: AttachGateway
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-ApplicationRoute
+  ApplicationRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref ApplicationRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  DatastoreRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: AttachGateway
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-DatastoreRoute
+  FrontendSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      AvailabilityZone: !Select [ 0, "Fn::GetAZs": {Ref: "AWS::Region"}]
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, FrontendSubnet1, CIDR ]}
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-FrontendSubnet1
+      VpcId: !Ref VPC
+  FrontendSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FrontendSubnet1
+      RouteTableId: !Ref FrontendRouteTable
+  FrontendSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      AvailabilityZone: !Select [ 1, "Fn::GetAZs": {Ref: "AWS::Region"}]
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, FrontendSubnet2, CIDR ]}
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-FrontendSubnet2
+      VpcId: !Ref VPC
+  FrontendSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FrontendSubnet2
+      RouteTableId: !Ref FrontendRouteTable
+  ApplicationSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      AvailabilityZone: !Select [ 0, "Fn::GetAZs": {Ref: "AWS::Region"}]
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, ApplicationSubnet1, CIDR ]}
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-ApplicationSubnet1
+      VpcId: !Ref VPC
+  ApplicationSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ApplicationSubnet1
+      RouteTableId: !Ref ApplicationRouteTable
+  ApplicationSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      AvailabilityZone: !Select [ 1, "Fn::GetAZs": {Ref: "AWS::Region"}]
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, ApplicationSubnet2, CIDR ]}
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-ApplicationSubnet2
+      VpcId: !Ref VPC
+  ApplicationSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ApplicationSubnet2
+      RouteTableId: !Ref ApplicationRouteTable
+  DatastoreSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      AvailabilityZone: !Select [ 0, "Fn::GetAZs": {Ref: "AWS::Region"}]
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, DatastoreSubnet1, CIDR ]}
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-DatastoreSubnet1
+      VpcId: !Ref VPC
+  DatastoreSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DatastoreSubnet1
+      RouteTableId: !Ref DatastoreRouteTable
+  DatastoreSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      AvailabilityZone: !Select [ 1, "Fn::GetAZs": {Ref: "AWS::Region"}]
+      CidrBlock: !Sub
+        - ${VPCCIDR}${SubCIDR}
+        - SubCIDR: {"Fn::FindInMap": [ StackConfig, DatastoreSubnet2, CIDR ]}
+      Tags:
+      - Key: Name
+        Value: !Sub ${NameTagPrefix}-DatastoreSubnet2
+      VpcId: !Ref VPC
+  DatastoreSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DatastoreSubnet2
+      RouteTableId: !Ref DatastoreRouteTable
+Outputs:
+  VPC:
+    Value: !Ref VPC
+  FrontendSubnet1:
+    Value: !Ref FrontendSubnet1
+  FrontendSubnet2:
+    Value: !Ref FrontendSubnet2
+  ApplicationSubnet1:
+    Value: !Ref ApplicationSubnet1
+  ApplicationSubnet2:
+    Value: !Ref ApplicationSubnet2
+  DatastoreSubnet1:
+    Value: !Ref DatastoreSubnet1
+  DatastoreSubnet2:
+    Value: !Ref DatastoreSubnet2
+  FrontendRouteTable:
+    Value: !Ref FrontendRouteTable
+  ApplicationRouteTable:
+    Value: !Ref ApplicationRouteTable
+  DatastoreRouteTable:
+    Value: !Ref DatastoreRouteTable
